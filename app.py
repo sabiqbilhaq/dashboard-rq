@@ -172,10 +172,10 @@ HTML_TEMPLATE = """
                                     <th style="width: 12%;">Total Hafalan</th>
                                     <th style="width: 10%;">Tasmi'</th>
                                     <th style="width: 10%;">Cabang</th>
-                                    <th style="width: 8%;">Kelas</th>
+                                    <th style="width: 8%;">Grade</th>
                                     <th style="width: 10%;">Status</th>
                                     <th style="width: 9%;">Gender</th>
-                                    <th style="width: 8%;">Pendidikan</th>
+                                    <th style="width: 8%;">Kelas</th>
                                     <th style="width: 8%;">Tahun Masuk</th>
                                 </tr>
                             </thead>
@@ -199,10 +199,10 @@ HTML_TEMPLATE = """
                                         {% endif %}
                                     </td>
                                     <td class="text-center"><span class="badge bg-secondary">{{ s.get('Cabang', '-') }}</span></td>
-                                    <td class="text-center">{{ s.get('Kelas_Clean', '-') }}</td>
+                                    <td class="text-center"><span class="badge bg-light text-dark border">{{ s.get('Grade_Clean', '-') }}</span></td>
                                     <td class="text-center"><span class="badge bg-info text-dark">{{ s.get('Status_Clean', '-') }}</span></td>
                                     <td class="text-center">{{ s.get('Gender_Clean', '-') }}</td>
-                                    <td class="text-center">{{ s.get('Pendidikan_Clean', '-') }}</td>
+                                    <td class="text-center fw-semibold">{{ s.get('Kelas_Clean', '-') }}</td>
                                     <td class="text-center">{{ s.get('Tahun_Clean', '-') }}</td>
                                 </tr>
                                 {% else %}
@@ -352,7 +352,6 @@ HTML_TEMPLATE = """
 """
 
 def extract_total_hafalan_map():
-    """Membaca sheet 'total hafalan' untuk mengambil data hafalan terbaru dan status kolom TASMI"""
     url = get_sheet_url('total hafalan')
     hafalan_dict = {}
     tasmi_dict = {}
@@ -377,7 +376,6 @@ def extract_total_hafalan_map():
         if not nama_c:
             nama_c = next((c for c in df.columns if 'nama' in c.lower() and 'ayah' not in c.lower()), None)
             
-        # Kolom TASMI di sheet total hafalan
         tasmi_col = next((c for c in df.columns if 'tasmi' in c.lower()), None)
             
         bulan_order = [
@@ -402,7 +400,6 @@ def extract_total_hafalan_map():
                 if not nama or nama.lower() == 'nan':
                     continue
                     
-                # 1. Hafalan terbaru dari kolom bulan
                 hafalan_terbaru = '-'
                 for col in reversed(month_cols):
                     val = row.get(col)
@@ -412,7 +409,6 @@ def extract_total_hafalan_map():
                             hafalan_terbaru = val_str
                             break
                             
-                # 2. Nilai kolom TASMI
                 tasmi_val = '-'
                 if tasmi_col and pd.notna(row.get(tasmi_col)):
                     t_str = str(row.get(tasmi_col)).strip()
@@ -481,17 +477,32 @@ def extract_santri_sheet(sheet_name, hafalan_map, tasmi_map):
     df_clean['Hafalan_Terbaru'] = df_clean['Nama_Clean'].apply(lambda n: get_val_from_map(n, hafalan_map))
     df_clean['Tasmi_Status'] = df_clean['Nama_Clean'].apply(lambda n: get_val_from_map(n, tasmi_map))
     
-    kelas_col = next((c for c in df.columns if 'kelas' in c.lower() or 'grade' in c.lower()), None)
-    df_clean['Kelas_Clean'] = df_clean[kelas_col].fillna('-') if kelas_col else '-'
+    # Grade (sebelumnya A, B, C)
+    grade_col = next((c for c in df.columns if 'grade' in c.lower()), None)
+    if not grade_col:
+        grade_col = next((c for c in df.columns if 'kelas' in c.lower()), None)
+    df_clean['Grade_Clean'] = df_clean[grade_col].fillna('-') if grade_col else '-'
+    
+    # Ambil data Kolom J (indeks ke-9) untuk Kelas aktual di sekolah
+    kelas_col_j = None
+    if len(df.columns) > 9:
+        candidate_j = df.columns[9]
+        if 'kelas' in candidate_j.lower() or 'grade' not in candidate_j.lower():
+            kelas_col_j = candidate_j
+            
+    if not kelas_col_j:
+        for c in df.columns:
+            if 'kelas' in c.lower() and c != grade_col:
+                kelas_col_j = c
+                break
+
+    df_clean['Kelas_Clean'] = df_clean[kelas_col_j].fillna('-') if kelas_col_j else '-'
     
     status_col = next((c for c in df.columns if 'status' in c.lower()), None)
     df_clean['Status_Clean'] = df_clean[status_col].fillna('-') if status_col else '-'
 
     gender_col = next((c for c in df.columns if 'kelamin' in c.lower() or 'gender' in c.lower() or c.lower() == 'jk'), None)
     df_clean['Gender_Clean'] = df_clean[gender_col].fillna('-') if gender_col else '-'
-
-    pend_col = next((c for c in df.columns if 'pendidikan' in c.lower()), None)
-    df_clean['Pendidikan_Clean'] = df_clean[pend_col].fillna('-') if pend_col else '-'
 
     thn_col = next((c for c in df.columns if 'tahun' in c.lower() or 'masuk' in c.lower()), None)
     if thn_col:
@@ -555,7 +566,7 @@ def extract_prestasi_sheet():
                 
                 prestasi_df = clean_df[['Nama', 'Rumah_Quran', 'Penghargaan', 'Lomba', 'Tingkat', 'Bulan', 'Tahun', 'Link_Foto']]
                 break
-        except Exception as e:
+        except Exception:
             continue
             
     return prestasi_df
