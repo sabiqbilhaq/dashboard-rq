@@ -8,11 +8,13 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 app = Flask(__name__)
 
-SHEET_ID = "1FKYLB_YYtXgB83ydpvhlzxEESmzkiMhBiz5KiZPRqag"
+# ID Spreadsheet
+SHEET_ID_UTAMA = "1FKYLB_YYtXgB83ydpvhlzxEESmzkiMhBiz5KiZPRqag"
+SHEET_ID_ALUMNI = "1q_CLTnSBZi21F50iZFJEzFtABZqC-DWr"
 
-def get_sheet_url(sheet_name):
+def get_sheet_url(sheet_name, sheet_id=SHEET_ID_UTAMA):
     encoded = urllib.parse.quote(sheet_name)
-    return f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={encoded}"
+    return f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={encoded}"
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -37,7 +39,7 @@ HTML_TEMPLATE = """
         <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
             <div>
                 <h2 class="fw-bold text-success mb-0">📖 Dashboard Monitoring RQ & RBQ</h2>
-                <p class="text-muted mb-0">Sistem Monitoring Data Santri, Fasilitas, Prestasi & Tasmi' TA 2026-2027</p>
+                <p class="text-muted mb-0">Sistem Monitoring Data Santri, Fasilitas, Prestasi, Tasmi' & Alumni</p>
             </div>
             <span class="badge bg-success p-2 fs-6">Tersinkronisasi Online</span>
         </div>
@@ -70,21 +72,20 @@ HTML_TEMPLATE = """
             </div>
             <div class="col-md-2 col-sm-6">
                 <div class="card card-stat bg-white p-3 h-100">
-                    <div class="text-muted small">TOTAL PRESTASI</div>
-                    <div class="h4 fw-bold text-warning text-dark mb-0">{{ total_prestasi }} Prestasi</div>
+                    <div class="text-muted small">TOTAL TASMI'</div>
+                    <div class="h4 fw-bold text-info mb-0">{{ total_tasmi }} Santri</div>
                 </div>
             </div>
             <div class="col-md-2 col-sm-6">
                 <div class="card card-stat bg-white p-3 h-100">
-                    <div class="text-muted small">TOTAL TASMI'</div>
-                    <div class="h4 fw-bold text-info mb-0">{{ total_tasmi }} Santri</div>
+                    <div class="text-muted small">TOTAL ALUMNI</div>
+                    <div class="h4 fw-bold text-danger mb-0">{{ total_alumni }} Alumni</div>
                 </div>
             </div>
         </div>
 
         <!-- Bagian Grafik & Profil -->
         <div class="row g-3 mb-4">
-            <!-- Grafik Cabang Rumah Qur'an -->
             <div class="col-lg-5">
                 <div class="card card-stat bg-white p-3 h-100">
                     <h6 class="fw-bold mb-1">Grafik Santri vs Kapasitas (Rumah Qur'an)</h6>
@@ -93,7 +94,6 @@ HTML_TEMPLATE = """
                 </div>
             </div>
             
-            <!-- Grafik Mandiri RBQ Cikupa -->
             <div class="col-lg-3">
                 <div class="card card-stat bg-white p-3 h-100 border-start border-warning border-4">
                     <h6 class="fw-bold mb-1">RBQ Cikupa</h6>
@@ -102,7 +102,6 @@ HTML_TEMPLATE = """
                 </div>
             </div>
 
-            <!-- Tabel PIC Cabang -->
             <div class="col-lg-4">
                 <div class="card card-stat bg-white p-3 h-100">
                     <h6 class="fw-bold mb-2">Daftar Cabang & PIC</h6>
@@ -149,6 +148,11 @@ HTML_TEMPLATE = """
                 <li class="nav-item" role="presentation">
                     <button class="nav-link {% if active_tab == 'tasmi' %}active{% endif %}" id="tasmi-tab" data-bs-toggle="tab" data-bs-target="#tasmi-content" type="button" role="tab">
                         📜 Data Tasmi' Santri ({{ total_tasmi_filtered }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'alumni' %}active{% endif %}" id="alumni-tab" data-bs-toggle="tab" data-bs-target="#alumni-content" type="button" role="tab">
+                        🎓 Data Alumni ({{ total_alumni_filtered }})
                     </button>
                 </li>
             </ul>
@@ -339,13 +343,70 @@ HTML_TEMPLATE = """
                         </table>
                     </div>
                 </div>
+
+                <!-- Tab 4: Data Alumni -->
+                <div class="tab-pane fade {% if active_tab == 'alumni' %}show active{% endif %}" id="alumni-content" role="tabpanel">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-2 mb-md-0 text-muted">DATA ALUMNI RUMAH QUR'AN</h6>
+                        <form method="get" class="d-flex gap-2">
+                            <input type="hidden" name="tab" value="alumni">
+                            <select name="cabang_alumni" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="">Semua Rumah Tahfidz</option>
+                                {% for c in cabang_list_alumni %}
+                                <option value="{{ c }}" {% if selected_cabang_alumni == c %}selected{% endif %}>{{ c }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" name="cari_alumni" class="form-control form-control-sm" placeholder="Cari nama/aktivitas..." value="{{ query_cari_alumni }}">
+                            <button type="submit" class="btn btn-sm btn-danger fw-semibold">Cari</button>
+                            {% if query_cari_alumni or selected_cabang_alumni %}
+                            <a href="/?tab=alumni" class="btn btn-sm btn-outline-secondary">Reset</a>
+                            {% endif %}
+                        </form>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped table-hover align-middle">
+                            <thead class="table-dark text-center">
+                                <tr>
+                                    <th style="width: 4%;">No</th>
+                                    <th style="width: 16%;" class="text-start">Nama Alumni</th>
+                                    <th style="width: 10%;">Asal</th>
+                                    <th style="width: 14%;">TTL</th>
+                                    <th style="width: 9%;">Bergabung</th>
+                                    <th style="width: 10%;">Tahun Wisuda</th>
+                                    <th style="width: 11%;">Rumah Tahfidz</th>
+                                    <th style="width: 16%;">Aktivitas Saat Ini</th>
+                                    <th style="width: 10%;">No. Telepon</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for a in alumni_data %}
+                                <tr>
+                                    <td class="text-center">{{ loop.index }}</td>
+                                    <td class="fw-bold text-start">{{ a.get('Nama', '-') }}</td>
+                                    <td class="text-center">{{ a.get('Asal', '-') }}</td>
+                                    <td class="small">{{ a.get('TTL', '-') }}</td>
+                                    <td class="text-center small">{{ a.get('Bergabung', '-') }}</td>
+                                    <td class="text-center"><span class="badge bg-secondary">{{ a.get('Tahun_Wisuda', '-') }}</span></td>
+                                    <td class="text-center"><span class="badge bg-success">{{ a.get('Rumah_Tahfidz', '-') }}</span></td>
+                                    <td>{{ a.get('Aktivitas', '-') }}</td>
+                                    <td class="text-center small">{{ a.get('No_Tlp', '-') }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="9" class="text-center py-4 text-muted">Belum ada data alumni yang cocok.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // 1. Grafik Cabang Rumah Qur'an
         const ctxRQ = document.getElementById('cabangChart').getContext('2d');
         new Chart(ctxRQ, {
             type: 'bar',
@@ -358,13 +419,10 @@ HTML_TEMPLATE = """
             },
             options: {
                 responsive: true,
-                scales: {
-                    y: { beginAtZero: true }
-                }
+                scales: { y: { beginAtZero: true } }
             }
         });
 
-        // 2. Grafik Khusus RBQ Cikupa
         const ctxCikupa = document.getElementById('cikupaChart').getContext('2d');
         new Chart(ctxCikupa, {
             type: 'bar',
@@ -377,9 +435,7 @@ HTML_TEMPLATE = """
             },
             options: {
                 responsive: true,
-                scales: {
-                    y: { beginAtZero: true }
-                }
+                scales: { y: { beginAtZero: true } }
             }
         });
     </script>
@@ -387,8 +443,60 @@ HTML_TEMPLATE = """
 </html>
 """
 
+def extract_alumni_sheet():
+    """Membaca sheet 'alumni rq' dari Spreadsheet Alumni"""
+    alumni_df = pd.DataFrame()
+    url = get_sheet_url('alumni rq', sheet_id=SHEET_ID_ALUMNI)
+    try:
+        raw = pd.read_csv(url, header=None)
+        
+        # Temukan baris header (berisi kata 'Nama' dan 'Wisuda' / 'Tahfidz')
+        header_idx = None
+        for idx, r in raw.head(8).iterrows():
+            line = " ".join(r.dropna().astype(str).tolist()).lower()
+            if "nama" in line and ("wisuda" in line or "tahfidz" in line or "asal" in line):
+                header_idx = idx
+                break
+                
+        if header_idx is not None:
+            df = pd.read_csv(url, skiprows=header_idx)
+        else:
+            df = pd.read_csv(url)
+
+        df.columns = [str(c).strip() for c in df.columns]
+
+        nama_c = next((c for c in df.columns if c.lower() in ['nama', 'nama alumni']), None)
+        asal_c = next((c for c in df.columns if 'asal' in c.lower()), None)
+        ttl_c = next((c for c in df.columns if any(k in c.lower() for k in ['tempat tanggal lahir', 'ttl', 'lahir'])), None)
+        gabung_c = next((c for c in df.columns if 'bergabung' in c.lower() or 'masuk' in c.lower()), None)
+        wisuda_c = next((c for c in df.columns if 'wisuda' in c.lower() or 'lulus' in c.lower()), None)
+        rt_c = next((c for c in df.columns if 'tahfidz' in c.lower() or 'cabang' in c.lower() or 'rq' in c.lower()), None)
+        aktivitas_c = next((c for c in df.columns if 'aktivitas' in c.lower() or 'kegiatan' in c.lower()), None)
+        tlp_c = next((c for c in df.columns if any(k in c.lower() for k in ['tlp', 'telp', 'hp', 'kontak', 'wa'])), None)
+
+        if nama_c:
+            clean_df = df.dropna(subset=[nama_c]).copy()
+            clean_df = clean_df[~clean_df[nama_c].astype(str).str.strip().str.lower().isin(
+                ['nama', 'total', 'jumlah', '', 'nan', 'no']
+            )]
+            
+            clean_df['Nama'] = clean_df[nama_c].astype(str).str.strip()
+            clean_df['Asal'] = clean_df[asal_c].fillna('-').astype(str).str.strip() if asal_c else '-'
+            clean_df['TTL'] = clean_df[ttl_c].fillna('-').astype(str).str.strip() if ttl_c else '-'
+            clean_df['Bergabung'] = clean_df[gabung_c].fillna('-').astype(str).str.strip() if gabung_c else '-'
+            clean_df['Tahun_Wisuda'] = clean_df[wisuda_c].fillna('-').astype(str).str.strip() if wisuda_c else '-'
+            clean_df['Rumah_Tahfidz'] = clean_df[rt_c].fillna('-').astype(str).str.replace('Rumah Tahfidz ', '').str.strip() if rt_c else '-'
+            clean_df['Aktivitas'] = clean_df[aktivitas_c].fillna('-').astype(str).str.strip() if aktivitas_c else '-'
+            clean_df['No_Tlp'] = clean_df[tlp_c].fillna('-').astype(str).str.replace('.0', '', regex=False).str.strip() if tlp_c else '-'
+            
+            alumni_df = clean_df[['Nama', 'Asal', 'TTL', 'Bergabung', 'Tahun_Wisuda', 'Rumah_Tahfidz', 'Aktivitas', 'No_Tlp']]
+    except Exception as e:
+        print(f"Error memuat alumni: {e}")
+        
+    return alumni_df
+
 def extract_total_hafalan_map():
-    url = get_sheet_url('total hafalan')
+    url = get_sheet_url('total hafalan', sheet_id=SHEET_ID_UTAMA)
     hafalan_dict = {}
     tasmi_dict = {}
     try:
@@ -457,7 +565,7 @@ def extract_total_hafalan_map():
     return hafalan_dict, tasmi_dict
 
 def extract_santri_sheet(sheet_name, hafalan_map, tasmi_map):
-    url = get_sheet_url(sheet_name)
+    url = get_sheet_url(sheet_name, sheet_id=SHEET_ID_UTAMA)
     try:
         raw_df = pd.read_csv(url, header=None)
     except Exception:
@@ -543,7 +651,7 @@ def extract_prestasi_sheet():
     prestasi_df = pd.DataFrame()
     for s_name in possible_prestasi_sheets:
         try:
-            url = get_sheet_url(s_name)
+            url = get_sheet_url(s_name, sheet_id=SHEET_ID_UTAMA)
             raw = pd.read_csv(url, header=None)
             header_idx = None
             for idx, r in raw.head(10).iterrows():
@@ -595,7 +703,7 @@ def extract_tasmi_sheet():
     tasmi_df = pd.DataFrame()
     for s_name in possible_names:
         try:
-            url = get_sheet_url(s_name)
+            url = get_sheet_url(s_name, sheet_id=SHEET_ID_UTAMA)
             raw = pd.read_csv(url, header=None)
             header_idx = None
             for idx, r in raw.head(10).iterrows():
@@ -632,7 +740,7 @@ def extract_tasmi_sheet():
 
 def load_online_data():
     try:
-        profil_url = get_sheet_url('Profil')
+        profil_url = get_sheet_url('Profil', sheet_id=SHEET_ID_UTAMA)
         profil = pd.read_csv(profil_url)
         if 'Rumah Tahfidz' in profil.columns:
             profil = profil.dropna(subset=['Rumah Tahfidz'])
@@ -651,11 +759,13 @@ def load_online_data():
     all_santri = pd.concat(santri_list, ignore_index=True) if santri_list else pd.DataFrame()
     prestasi_data = extract_prestasi_sheet()
     tasmi_data = extract_tasmi_sheet()
-    return profil, all_santri, prestasi_data, tasmi_data
+    alumni_data = extract_alumni_sheet()
+    
+    return profil, all_santri, prestasi_data, tasmi_data, alumni_data
 
 @app.route('/')
 def home():
-    profil_df, all_santri, prestasi_df, tasmi_df = load_online_data()
+    profil_df, all_santri, prestasi_df, tasmi_df, alumni_df = load_online_data()
     
     total_cabang = len(profil_df)
     total_santri = int(profil_df['Jumlah Santri'].sum()) if not profil_df.empty and 'Jumlah Santri' in profil_df.columns else 0
@@ -663,9 +773,11 @@ def home():
     okupansi = round((total_santri / total_kapasitas * 100), 1) if total_kapasitas > 0 else 0
     total_prestasi = len(prestasi_df)
     total_tasmi = len(tasmi_df)
+    total_alumni = len(alumni_df)
     
     active_tab = request.args.get('tab', 'santri')
     
+    # Filter Santri
     selected_cabang = request.args.get('cabang', '')
     query_cari = request.args.get('cari', '')
     filtered_santri = all_santri.copy()
@@ -675,6 +787,7 @@ def home():
         filtered_santri = filtered_santri[filtered_santri['Nama_Clean'].astype(str).str.contains(query_cari, case=False, na=False)]
     cabang_list = sorted(all_santri['Cabang'].unique()) if not all_santri.empty else []
     
+    # Filter Prestasi
     selected_cabang_prestasi = request.args.get('cabang_prestasi', '')
     query_cari_prestasi = request.args.get('cari_prestasi', '')
     filtered_prestasi = prestasi_df.copy()
@@ -687,6 +800,7 @@ def home():
         filtered_prestasi = filtered_prestasi[m1 | m2 | m3]
     cabang_list_prestasi = sorted(prestasi_df['Rumah_Quran'].unique()) if not prestasi_df.empty else []
     
+    # Filter Tasmi'
     selected_cabang_tasmi = request.args.get('cabang_tasmi', '')
     query_cari_tasmi = request.args.get('cari_tasmi', '')
     filtered_tasmi = tasmi_df.copy()
@@ -698,6 +812,19 @@ def home():
         filtered_tasmi = filtered_tasmi[m1 | m2]
     cabang_list_tasmi = sorted(tasmi_df['RQ'].unique()) if not tasmi_df.empty else []
     
+    # Filter Alumni
+    selected_cabang_alumni = request.args.get('cabang_alumni', '')
+    query_cari_alumni = request.args.get('cari_alumni', '')
+    filtered_alumni = alumni_df.copy()
+    if selected_cabang_alumni and not filtered_alumni.empty:
+        filtered_alumni = filtered_alumni[filtered_alumni['Rumah_Tahfidz'] == selected_cabang_alumni]
+    if query_cari_alumni and not filtered_alumni.empty:
+        m_alumni1 = filtered_alumni['Nama'].astype(str).str.contains(query_cari_alumni, case=False, na=False)
+        m_alumni2 = filtered_alumni['Aktivitas'].astype(str).str.contains(query_cari_alumni, case=False, na=False)
+        m_alumni3 = filtered_alumni['Asal'].astype(str).str.contains(query_cari_alumni, case=False, na=False)
+        filtered_alumni = filtered_alumni[m_alumni1 | m_alumni2 | m_alumni3]
+    cabang_list_alumni = sorted(alumni_df['Rumah_Tahfidz'].unique()) if not alumni_df.empty else []
+
     # Pisahkan data grafik RQ vs RBQ Cikupa
     labels_rq = []
     santri_rq = []
@@ -727,6 +854,7 @@ def home():
         total_kapasitas=total_kapasitas,
         total_prestasi=total_prestasi,
         total_tasmi=total_tasmi,
+        total_alumni=total_alumni,
         okupansi=okupansi,
         profil_data=profil_df.to_dict(orient='records'),
         santri_data=filtered_santri.to_dict(orient='records'),
@@ -735,15 +863,20 @@ def home():
         total_prestasi_filtered=len(filtered_prestasi),
         tasmi_data=filtered_tasmi.to_dict(orient='records'),
         total_tasmi_filtered=len(filtered_tasmi),
+        alumni_data=filtered_alumni.to_dict(orient='records'),
+        total_alumni_filtered=len(filtered_alumni),
         cabang_list=cabang_list,
         cabang_list_prestasi=cabang_list_prestasi,
         cabang_list_tasmi=cabang_list_tasmi,
+        cabang_list_alumni=cabang_list_alumni,
         selected_cabang=selected_cabang,
         selected_cabang_prestasi=selected_cabang_prestasi,
         selected_cabang_tasmi=selected_cabang_tasmi,
+        selected_cabang_alumni=selected_cabang_alumni,
         query_cari=query_cari,
         query_cari_prestasi=query_cari_prestasi,
         query_cari_tasmi=query_cari_tasmi,
+        query_cari_alumni=query_cari_alumni,
         active_tab=active_tab,
         chart_labels=labels_rq,
         chart_santri=santri_rq,
