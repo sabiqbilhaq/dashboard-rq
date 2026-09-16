@@ -38,8 +38,8 @@ HTML_TEMPLATE = """
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
             <div>
-                <h2 class="fw-bold text-success mb-0">📖 Dashboard Monitoring RQ & RBQ</h2>
-                <p class="text-muted mb-0">Sistem Monitoring Data Santri, Fasilitas, Prestasi, Tasmi' & Alumni</p>
+                <h2 class="fw-bold text-success mb-0">📖 Dashboard santri Rumah Quran Bina Santri Indonesia</h2>
+                <p class="text-muted mb-0">Tahun ajaran 2026-2027</p>
             </div>
             <span class="badge bg-success p-2 fs-6">Tersinkronisasi Online</span>
         </div>
