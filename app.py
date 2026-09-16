@@ -84,7 +84,7 @@ HTML_TEMPLATE = """
             </div>
         </div>
 
-        <!-- Bagian Grafik & Profil -->
+        <!-- Bagian Grafik & Profil Cabang -->
         <div class="row g-3 mb-4">
             <div class="col-lg-5">
                 <div class="card card-stat bg-white p-3 h-100">
@@ -105,24 +105,34 @@ HTML_TEMPLATE = """
             <div class="col-lg-4">
                 <div class="card card-stat bg-white p-3 h-100">
                     <h6 class="fw-bold mb-2">Daftar Cabang & PIC</h6>
-                    <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
+                    <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
                         <table class="table table-sm table-hover align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Cabang</th>
-                                    <th>Santri</th>
-                                    <th>Kapasitas</th>
+                                    <th>Cabang & Info Lokasi</th>
+                                    <th class="text-center">Santri</th>
+                                    <th class="text-center">Kapasitas</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for r in profil_data %}
                                 <tr>
-                                    <td>
-                                        <div class="fw-semibold">{{ r.get('Rumah Tahfidz', '-') }}</div>
-                                        <small class="text-muted">{{ r.get('Kontak Pembina', '-') }}</small>
+                                    <td class="py-2">
+                                        <div class="fw-semibold text-dark">{{ r.get('Rumah Tahfidz', '-') }}</div>
+                                        <div class="small text-muted mb-1">👤 PIC: {{ r.get('Kontak Pembina', '-') }}</div>
+                                        {% if r.get('Alamat_Clean') and r.get('Alamat_Clean') != '-' %}
+                                        <div class="small text-secondary" style="font-size: 0.8rem; line-height: 1.25;">📍 {{ r.get('Alamat_Clean') }}</div>
+                                        {% endif %}
+                                        {% if r.get('Maps_Link') and r.get('Maps_Link') != '-' and 'http' in r.get('Maps_Link') %}
+                                        <div class="mt-1">
+                                            <a href="{{ r.get('Maps_Link') }}" target="_blank" class="badge bg-light text-primary border text-decoration-none py-1 px-2">
+                                                🗺️ Buka Google Maps
+                                            </a>
+                                        </div>
+                                        {% endif %}
                                     </td>
-                                    <td><span class="badge bg-primary">{{ r.get('Jumlah Santri', 0) }}</span></td>
-                                    <td>{{ r.get('Kapasitas Rumah Qur’an', 0) }}</td>
+                                    <td class="text-center"><span class="badge bg-primary">{{ r.get('Jumlah Santri', 0) }}</span></td>
+                                    <td class="text-center">{{ r.get('Kapasitas Rumah Qur’an', 0) }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -443,14 +453,44 @@ HTML_TEMPLATE = """
 </html>
 """
 
+def extract_profil_sheet():
+    profil_url = get_sheet_url('Profil', sheet_id=SHEET_ID_UTAMA)
+    try:
+        raw_df = pd.read_csv(profil_url, header=None)
+        header_idx = None
+        for idx, r in raw_df.head(6).iterrows():
+            line = " ".join(r.dropna().astype(str).tolist()).lower()
+            if "rumah tahfidz" in line or "alamat" in line:
+                header_idx = idx
+                break
+                
+        if header_idx is not None:
+            df = pd.read_csv(profil_url, skiprows=header_idx)
+        else:
+            df = pd.read_csv(profil_url)
+
+        df.columns = [str(c).strip() for c in df.columns]
+
+        rt_col = next((c for c in df.columns if 'rumah tahfidz' in c.lower()), None)
+        alamat_col = next((c for c in df.columns if 'alamat' in c.lower()), None)
+        maps_col = next((c for c in df.columns if 'google maps' in c.lower() or 'maps' in c.lower()), None)
+
+        if rt_col:
+            df = df.dropna(subset=[rt_col]).copy()
+            df = df[~df[rt_col].astype(str).str.strip().str.lower().isin(['rumah tahfidz', '', 'nan', 'total', 'jumlah'])]
+            df['Alamat_Clean'] = df[alamat_col].fillna('-').astype(str).str.strip() if alamat_col else '-'
+            df['Maps_Link'] = df[maps_col].fillna('-').astype(str).str.strip() if maps_col else '-'
+            return df
+    except Exception as e:
+        print(f"Error memuat profil: {e}")
+        
+    return pd.DataFrame()
+
 def extract_alumni_sheet():
-    """Membaca sheet 'alumni rq' dari Spreadsheet Alumni"""
     alumni_df = pd.DataFrame()
     url = get_sheet_url('alumni rq', sheet_id=SHEET_ID_ALUMNI)
     try:
         raw = pd.read_csv(url, header=None)
-        
-        # Temukan baris header (berisi kata 'Nama' dan 'Wisuda' / 'Tahfidz')
         header_idx = None
         for idx, r in raw.head(8).iterrows():
             line = " ".join(r.dropna().astype(str).tolist()).lower()
@@ -739,14 +779,7 @@ def extract_tasmi_sheet():
     return tasmi_df
 
 def load_online_data():
-    try:
-        profil_url = get_sheet_url('Profil', sheet_id=SHEET_ID_UTAMA)
-        profil = pd.read_csv(profil_url)
-        if 'Rumah Tahfidz' in profil.columns:
-            profil = profil.dropna(subset=['Rumah Tahfidz'])
-    except Exception:
-        profil = pd.DataFrame()
-    
+    profil_df = extract_profil_sheet()
     hafalan_map, tasmi_map = extract_total_hafalan_map()
     
     rq_sheets = ['RQ Parung', 'RQ Bogor', 'RQ Cimahi', 'RQ Semarang', 'RQ Solo', 'RQ Magetan', 'RQ Aceh']
@@ -761,7 +794,7 @@ def load_online_data():
     tasmi_data = extract_tasmi_sheet()
     alumni_data = extract_alumni_sheet()
     
-    return profil, all_santri, prestasi_data, tasmi_data, alumni_data
+    return profil_df, all_santri, prestasi_data, tasmi_data, alumni_data
 
 @app.route('/')
 def home():
@@ -820,12 +853,12 @@ def home():
         filtered_alumni = filtered_alumni[filtered_alumni['Rumah_Tahfidz'] == selected_cabang_alumni]
     if query_cari_alumni and not filtered_alumni.empty:
         m_alumni1 = filtered_alumni['Nama'].astype(str).str.contains(query_cari_alumni, case=False, na=False)
-        m_alumni2 = filtered_alumni['Aktivitas'].astype(str).str.contains(query_cari_alumni, case=False, na=False)
-        m_alumni3 = filtered_alumni['Asal'].astype(str).str.contains(query_cari_alumni, case=False, na=False)
+        m_alumni2 = filtered_alumni['Aktivitas'].astype(str).contains(query_cari_alumni, case=False, na=False)
+        m_alumni3 = filtered_alumni['Asal'].astype(str).contains(query_cari_alumni, case=False, na=False)
         filtered_alumni = filtered_alumni[m_alumni1 | m_alumni2 | m_alumni3]
     cabang_list_alumni = sorted(alumni_df['Rumah_Tahfidz'].unique()) if not alumni_df.empty else []
 
-    # Pisahkan data grafik RQ vs RBQ Cikupa
+    # Pisahkan grafik RQ vs RBQ Cikupa
     labels_rq = []
     santri_rq = []
     kapasitas_rq = []
