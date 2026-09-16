@@ -4,12 +4,10 @@ import urllib.parse
 import pandas as pd
 from flask import Flask, render_template_string, request
 
-# Bypass verifikasi SSL macOS
 ssl._create_default_https_context = ssl._create_unverified_context
 
 app = Flask(__name__)
 
-# ID Google Sheets Rumah Quran
 SHEET_ID = "1FKYLB_YYtXgB83ydpvhlzxEESmzkiMhBiz5KiZPRqag"
 
 def get_sheet_url(sheet_name):
@@ -38,7 +36,7 @@ HTML_TEMPLATE = """
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
             <div>
-                <h2 class="fw-bold text-success mb-0">📖 Dashboard Rumah Qur'an</h2>
+                <h2 class="fw-bold text-success mb-0">📖 Dashboard Monitoring RQ & RBQ</h2>
                 <p class="text-muted mb-0">Sistem Monitoring Data Santri, Fasilitas, Prestasi & Tasmi' TA 2026-2027</p>
             </div>
             <span class="badge bg-success p-2 fs-6">Tersinkronisasi Online</span>
@@ -48,7 +46,7 @@ HTML_TEMPLATE = """
         <div class="row g-3 mb-4">
             <div class="col-md-2 col-sm-6">
                 <div class="card card-stat bg-white p-3 h-100">
-                    <div class="text-muted small">TOTAL RUMAH QUR'AN</div>
+                    <div class="text-muted small">TOTAL CABANG</div>
                     <div class="h4 fw-bold text-dark mb-0">{{ total_cabang }} Lokasi</div>
                 </div>
             </div>
@@ -84,22 +82,35 @@ HTML_TEMPLATE = """
             </div>
         </div>
 
-        <!-- Chart & Profil RQ -->
+        <!-- Bagian Grafik & Profil -->
         <div class="row g-3 mb-4">
-            <div class="col-lg-7">
-                <div class="card card-stat bg-white p-3">
-                    <h5 class="fw-bold mb-3">Grafik Santri vs Kapasitas per Cabang</h5>
-                    <canvas id="cabangChart" height="130"></canvas>
+            <!-- Grafik Cabang Rumah Qur'an -->
+            <div class="col-lg-5">
+                <div class="card card-stat bg-white p-3 h-100">
+                    <h6 class="fw-bold mb-1">Grafik Santri vs Kapasitas (Rumah Qur'an)</h6>
+                    <small class="text-muted mb-2 d-block">Cabang asrama tahfidz reguler</small>
+                    <canvas id="cabangChart" height="150"></canvas>
                 </div>
             </div>
-            <div class="col-lg-5">
-                <div class="card card-stat bg-white p-3">
-                    <h5 class="fw-bold mb-3">Daftar Cabang & PIC</h5>
-                    <div class="table-responsive" style="max-height: 270px; overflow-y: auto;">
-                        <table class="table table-sm table-hover align-middle">
+            
+            <!-- Grafik Mandiri RBQ Cikupa -->
+            <div class="col-lg-3">
+                <div class="card card-stat bg-white p-3 h-100 border-start border-warning border-4">
+                    <h6 class="fw-bold mb-1">RBQ Cikupa</h6>
+                    <small class="text-muted mb-2 d-block">Rumah Belajar Qur'an (Non-Asrama)</small>
+                    <canvas id="cikupaChart" height="150"></canvas>
+                </div>
+            </div>
+
+            <!-- Tabel PIC Cabang -->
+            <div class="col-lg-4">
+                <div class="card card-stat bg-white p-3 h-100">
+                    <h6 class="fw-bold mb-2">Daftar Cabang & PIC</h6>
+                    <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Rumah Qur'an</th>
+                                    <th>Cabang</th>
                                     <th>Santri</th>
                                     <th>Kapasitas</th>
                                 </tr>
@@ -334,8 +345,9 @@ HTML_TEMPLATE = """
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const ctx = document.getElementById('cabangChart').getContext('2d');
-        new Chart(ctx, {
+        // 1. Grafik Cabang Rumah Qur'an
+        const ctxRQ = document.getElementById('cabangChart').getContext('2d');
+        new Chart(ctxRQ, {
             type: 'bar',
             data: {
                 labels: {{ chart_labels | tojson }},
@@ -344,7 +356,31 @@ HTML_TEMPLATE = """
                     { label: 'Kapasitas', data: {{ chart_kapasitas | tojson }}, backgroundColor: 'rgba(108, 117, 125, 0.4)' }
                 ]
             },
-            options: { responsive: true, scales: { y: { beginAtZero: true } } }
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        // 2. Grafik Khusus RBQ Cikupa
+        const ctxCikupa = document.getElementById('cikupaChart').getContext('2d');
+        new Chart(ctxCikupa, {
+            type: 'bar',
+            data: {
+                labels: ['RBQ Cikupa'],
+                datasets: [
+                    { label: 'Jumlah Santri', data: [{{ cikupa_santri }}], backgroundColor: 'rgba(13, 110, 253, 0.85)' },
+                    { label: 'Kapasitas', data: [{{ cikupa_kapasitas }}], backgroundColor: 'rgba(108, 117, 125, 0.4)' }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
         });
     </script>
 </body>
@@ -357,7 +393,6 @@ def extract_total_hafalan_map():
     tasmi_dict = {}
     try:
         raw = pd.read_csv(url, header=None)
-        
         header_idx = None
         for idx, r in raw.head(8).iterrows():
             line = " ".join(r.dropna().astype(str).tolist()).lower()
@@ -371,17 +406,12 @@ def extract_total_hafalan_map():
             df = pd.read_csv(url)
 
         df.columns = [str(c).strip() for c in df.columns]
-        
         nama_c = next((c for c in df.columns if c.lower() in ['nama', 'nama santri']), None)
         if not nama_c:
             nama_c = next((c for c in df.columns if 'nama' in c.lower() and 'ayah' not in c.lower()), None)
             
         tasmi_col = next((c for c in df.columns if 'tasmi' in c.lower()), None)
-            
-        bulan_order = [
-            'juli', 'agustus', 'september', 'oktober', 'november', 'desember',
-            'januari', 'februari', 'maret', 'april', 'mei', 'juni'
-        ]
+        bulan_order = ['juli', 'agustus', 'september', 'oktober', 'november', 'desember', 'januari', 'februari', 'maret', 'april', 'mei', 'juni']
         
         month_cols = []
         for b in bulan_order:
@@ -446,7 +476,6 @@ def extract_santri_sheet(sheet_name, hafalan_map, tasmi_map):
         df = pd.read_csv(url)
 
     df.columns = [str(c).strip() for c in df.columns]
-
     nama_col = next((c for c in df.columns if c.lower() in ['nama', 'nama santri', 'nama lengkap']), None)
     if not nama_col:
         for c in df.columns:
@@ -477,13 +506,11 @@ def extract_santri_sheet(sheet_name, hafalan_map, tasmi_map):
     df_clean['Hafalan_Terbaru'] = df_clean['Nama_Clean'].apply(lambda n: get_val_from_map(n, hafalan_map))
     df_clean['Tasmi_Status'] = df_clean['Nama_Clean'].apply(lambda n: get_val_from_map(n, tasmi_map))
     
-    # Grade (sebelumnya A, B, C)
     grade_col = next((c for c in df.columns if 'grade' in c.lower()), None)
     if not grade_col:
         grade_col = next((c for c in df.columns if 'kelas' in c.lower()), None)
     df_clean['Grade_Clean'] = df_clean[grade_col].fillna('-') if grade_col else '-'
     
-    # Ambil data Kolom J (indeks ke-9) untuk Kelas aktual di sekolah
     kelas_col_j = None
     if len(df.columns) > 9:
         candidate_j = df.columns[9]
@@ -497,13 +524,10 @@ def extract_santri_sheet(sheet_name, hafalan_map, tasmi_map):
                 break
 
     df_clean['Kelas_Clean'] = df_clean[kelas_col_j].fillna('-') if kelas_col_j else '-'
-    
     status_col = next((c for c in df.columns if 'status' in c.lower()), None)
     df_clean['Status_Clean'] = df_clean[status_col].fillna('-') if status_col else '-'
-
     gender_col = next((c for c in df.columns if 'kelamin' in c.lower() or 'gender' in c.lower() or c.lower() == 'jk'), None)
     df_clean['Gender_Clean'] = df_clean[gender_col].fillna('-') if gender_col else '-'
-
     thn_col = next((c for c in df.columns if 'tahun' in c.lower() or 'masuk' in c.lower()), None)
     if thn_col:
         df_clean['Tahun_Clean'] = pd.to_numeric(df_clean[thn_col], errors='coerce').fillna(0).astype(int).replace(0, '-')
@@ -517,12 +541,10 @@ def extract_santri_sheet(sheet_name, hafalan_map, tasmi_map):
 def extract_prestasi_sheet():
     possible_prestasi_sheets = ['prestasi', 'Prestasi', 'Data Prestasi', 'Prestasi Santri', 'Capaian Santri']
     prestasi_df = pd.DataFrame()
-    
     for s_name in possible_prestasi_sheets:
         try:
             url = get_sheet_url(s_name)
             raw = pd.read_csv(url, header=None)
-            
             header_idx = None
             for idx, r in raw.head(10).iterrows():
                 row_text = " ".join(r.dropna().astype(str).tolist()).lower()
@@ -536,7 +558,6 @@ def extract_prestasi_sheet():
                 df = pd.read_csv(url)
 
             df.columns = [str(c).strip() for c in df.columns]
-            
             nama_c = next((c for c in df.columns if c.lower() in ['nama', 'nama santri']), None)
             rq_c = next((c for c in df.columns if any(k in c.lower() for k in ['rumah qur', 'qur’an', 'cabang'])), None)
             penghargaan_c = next((c for c in df.columns if 'penghargaan' in c.lower()), None)
@@ -563,23 +584,19 @@ def extract_prestasi_sheet():
                 clean_df['Bulan'] = clean_df[bulan_c].fillna('-').astype(str).str.strip() if bulan_c else '-'
                 clean_df['Tahun'] = clean_df[tahun_c].fillna('-').astype(str).str.strip() if tahun_c else '-'
                 clean_df['Link_Foto'] = clean_df[foto_c].fillna('-').astype(str).str.strip() if foto_c else '-'
-                
                 prestasi_df = clean_df[['Nama', 'Rumah_Quran', 'Penghargaan', 'Lomba', 'Tingkat', 'Bulan', 'Tahun', 'Link_Foto']]
                 break
         except Exception:
             continue
-            
     return prestasi_df
 
 def extract_tasmi_sheet():
     possible_names = ['data tasmi', 'Data Tasmi', 'tasmi', 'Tasmi']
     tasmi_df = pd.DataFrame()
-    
     for s_name in possible_names:
         try:
             url = get_sheet_url(s_name)
             raw = pd.read_csv(url, header=None)
-            
             header_idx = None
             for idx, r in raw.head(10).iterrows():
                 line = " ".join(r.dropna().astype(str).tolist()).lower()
@@ -593,7 +610,6 @@ def extract_tasmi_sheet():
                 df = pd.read_csv(url)
 
             df.columns = [str(c).strip() for c in df.columns]
-            
             nama_c = next((c for c in df.columns if 'nama' in c.lower()), None)
             juz_c = next((c for c in df.columns if 'juz' in c.lower()), None)
             tgl_c = next((c for c in df.columns if 'tgl' in c.lower() or 'tanggal' in c.lower()), None)
@@ -604,17 +620,14 @@ def extract_tasmi_sheet():
                 clean_df = clean_df[~clean_df[nama_c].astype(str).str.strip().str.lower().isin(
                     ['nama', 'nama santri', 'total', 'jumlah', '', 'nan', 'data tasmi santri ta 2026-2027']
                 )]
-                
                 clean_df['Nama'] = clean_df[nama_c].astype(str).str.strip()
                 clean_df['Jumlah_Juz'] = clean_df[juz_c].fillna('-').astype(str).str.replace('.0', '', regex=False).str.strip() if juz_c else '-'
                 clean_df['Tgl_Tasmi'] = clean_df[tgl_c].fillna('-').astype(str).str.strip() if tgl_c else '-'
                 clean_df['RQ'] = clean_df[rq_c].fillna('-').astype(str).str.strip() if rq_c else '-'
-                
                 tasmi_df = clean_df[['Nama', 'Jumlah_Juz', 'Tgl_Tasmi', 'RQ']]
                 break
-        except Exception as e:
+        except Exception:
             continue
-            
     return tasmi_df
 
 def load_online_data():
@@ -653,7 +666,6 @@ def home():
     
     active_tab = request.args.get('tab', 'santri')
     
-    # Filter Santri
     selected_cabang = request.args.get('cabang', '')
     query_cari = request.args.get('cari', '')
     filtered_santri = all_santri.copy()
@@ -663,7 +675,6 @@ def home():
         filtered_santri = filtered_santri[filtered_santri['Nama_Clean'].astype(str).str.contains(query_cari, case=False, na=False)]
     cabang_list = sorted(all_santri['Cabang'].unique()) if not all_santri.empty else []
     
-    # Filter Prestasi
     selected_cabang_prestasi = request.args.get('cabang_prestasi', '')
     query_cari_prestasi = request.args.get('cari_prestasi', '')
     filtered_prestasi = prestasi_df.copy()
@@ -676,7 +687,6 @@ def home():
         filtered_prestasi = filtered_prestasi[m1 | m2 | m3]
     cabang_list_prestasi = sorted(prestasi_df['Rumah_Quran'].unique()) if not prestasi_df.empty else []
     
-    # Filter Tasmi'
     selected_cabang_tasmi = request.args.get('cabang_tasmi', '')
     query_cari_tasmi = request.args.get('cari_tasmi', '')
     filtered_tasmi = tasmi_df.copy()
@@ -688,11 +698,28 @@ def home():
         filtered_tasmi = filtered_tasmi[m1 | m2]
     cabang_list_tasmi = sorted(tasmi_df['RQ'].unique()) if not tasmi_df.empty else []
     
-    # Data Chart
-    labels = profil_df['Rumah Tahfidz'].str.replace('Rumah Qur’an BSI ', '').str.replace('Rumah Belajar Qur’an ', '').tolist() if not profil_df.empty and 'Rumah Tahfidz' in profil_df.columns else []
-    santri_vals = profil_df['Jumlah Santri'].tolist() if not profil_df.empty and 'Jumlah Santri' in profil_df.columns else []
-    kapasitas_vals = profil_df['Kapasitas Rumah Qur’an'].tolist() if not profil_df.empty and 'Kapasitas Rumah Qur’an' in profil_df.columns else []
-    
+    # Pisahkan data grafik RQ vs RBQ Cikupa
+    labels_rq = []
+    santri_rq = []
+    kapasitas_rq = []
+    cikupa_santri = 0
+    cikupa_kapasitas = 0
+
+    if not profil_df.empty and 'Rumah Tahfidz' in profil_df.columns:
+        for _, row in profil_df.iterrows():
+            nama_cabang = str(row.get('Rumah Tahfidz', ''))
+            j_santri = int(row.get('Jumlah Santri', 0)) if pd.notna(row.get('Jumlah Santri')) else 0
+            k_santri = int(row.get('Kapasitas Rumah Qur’an', 0)) if pd.notna(row.get('Kapasitas Rumah Qur’an')) else 0
+            
+            if 'cikupa' in nama_cabang.lower():
+                cikupa_santri = j_santri
+                cikupa_kapasitas = k_santri
+            else:
+                label_clean = nama_cabang.replace('Rumah Qur’an BSI ', '').replace('Rumah Belajar Qur’an ', '').strip()
+                labels_rq.append(label_clean)
+                santri_rq.append(j_santri)
+                kapasitas_rq.append(k_santri)
+
     return render_template_string(
         HTML_TEMPLATE,
         total_cabang=total_cabang,
@@ -718,9 +745,11 @@ def home():
         query_cari_prestasi=query_cari_prestasi,
         query_cari_tasmi=query_cari_tasmi,
         active_tab=active_tab,
-        chart_labels=labels,
-        chart_santri=santri_vals,
-        chart_kapasitas=kapasitas_vals
+        chart_labels=labels_rq,
+        chart_santri=santri_rq,
+        chart_kapasitas=kapasitas_rq,
+        cikupa_santri=cikupa_santri,
+        cikupa_kapasitas=cikupa_kapasitas
     )
 
 if __name__ == '__main__':
