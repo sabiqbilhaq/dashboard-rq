@@ -8,9 +8,10 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 app = Flask(__name__)
 
-# ID Spreadsheet
+# ID Spreadsheet & File
 SHEET_ID_UTAMA = "1FKYLB_YYtXgB83ydpvhlzxEESmzkiMhBiz5KiZPRqag"
 SHEET_ID_ALUMNI = "1q_CLTnSBZi21F50iZFJEzFtABZqC-DWr"
+PDF_TATA_TERTIB_ID = "1_gxEFeoZ2hsT8uM1INnAzxT_v-CkOGTQ"
 
 def get_sheet_url(sheet_name, sheet_id=SHEET_ID_UTAMA):
     encoded = urllib.parse.quote(sheet_name)
@@ -31,6 +32,8 @@ HTML_TEMPLATE = """
         .table-card { border-radius: 12px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .nav-tabs .nav-link { font-weight: 600; color: #495057; border: none; border-bottom: 3px solid transparent; }
         .nav-tabs .nav-link.active { color: #198754; border: none; border-bottom: 3px solid #198754; background: transparent; }
+        .pdf-container { position: relative; width: 100%; height: 780px; border-radius: 8px; overflow: hidden; border: 1px solid #dee2e6; }
+        .pdf-container iframe { width: 100%; height: 100%; border: none; }
     </style>
 </head>
 <body class="p-4">
@@ -168,6 +171,11 @@ HTML_TEMPLATE = """
                 <li class="nav-item" role="presentation">
                     <button class="nav-link {% if active_tab == 'alumni' %}active{% endif %}" id="alumni-tab" data-bs-toggle="tab" data-bs-target="#alumni-content" type="button" role="tab">
                         🎓 Data Alumni ({{ total_alumni_filtered }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'tatatertib' %}active{% endif %}" id="tatatertib-tab" data-bs-toggle="tab" data-bs-target="#tatatertib-content" type="button" role="tab">
+                        📋 Tata Tertib Santri
                     </button>
                 </li>
             </ul>
@@ -453,6 +461,28 @@ HTML_TEMPLATE = """
                         </table>
                     </div>
                 </div>
+
+                <!-- Tab 6: Tata Tertib Santri -->
+                <div class="tab-pane fade {% if active_tab == 'tatatertib' %}show active{% endif %}" id="tatatertib-content" role="tabpanel">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="fw-bold mb-0 text-muted">BUKU PANDUAN & TATA TERTIB SANTRI RUMAH QUR'AN</h6>
+                            <small class="text-muted">Baca langsung dokumen peraturan dan tata tertib di bawah ini</small>
+                        </div>
+                        <div class="d-flex gap-2 mt-2 mt-md-0">
+                            <a href="https://drive.google.com/file/d/{{ pdf_id }}/view?usp=sharing" target="_blank" class="btn btn-sm btn-outline-success fw-semibold">
+                                ↗️ Buka di Tab Baru
+                            </a>
+                            <a href="https://drive.google.com/uc?export=download&id={{ pdf_id }}" target="_blank" class="btn btn-sm btn-success fw-semibold">
+                                📥 Download PDF
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="pdf-container">
+                        <iframe src="https://drive.google.com/file/d/{{ pdf_id }}/preview" allow="autoplay"></iframe>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -496,13 +526,10 @@ HTML_TEMPLATE = """
 """
 
 def extract_rata2_sheet():
-    """Membaca sheet 'rata2 hafalan' dan mengambil rata-rata bulan terbaru tiap cabang"""
     rata2_list = []
     url = get_sheet_url('rata2 hafalan', sheet_id=SHEET_ID_UTAMA)
     try:
         raw = pd.read_csv(url, header=None)
-        
-        # Temukan baris header bulan
         header_idx = None
         for idx, r in raw.head(6).iterrows():
             line = " ".join(r.dropna().astype(str).tolist()).lower()
@@ -524,7 +551,6 @@ def extract_rata2_sheet():
             if found:
                 month_cols.append((b.capitalize(), found))
 
-        # Telusuri baris RATA-RATA tiap cabang
         current_rq = "-"
         for idx, row in df.iterrows():
             first_val = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ""
@@ -534,7 +560,6 @@ def extract_rata2_sheet():
 
             row_str = " ".join(row.dropna().astype(str).tolist()).lower()
             if "rata-rata" in row_str or "rata2" in row_str or "rata" in row_str:
-                # Cari nilai bulan terbaru dari kanan ke kiri
                 val_terbaru = "-"
                 nama_bulan_terbaru = "-"
                 
@@ -542,7 +567,6 @@ def extract_rata2_sheet():
                     v = row.get(m_col)
                     if pd.notna(v):
                         v_str = str(v).strip()
-                        # Abaikan nilai kosong, strip, atau error excel #DIV/0!
                         if v_str and v_str.lower() not in ['nan', '-', ''] and not v_str.startswith('#'):
                             try:
                                 num = float(v_str.replace(',', '.'))
@@ -1010,6 +1034,7 @@ def home():
         total_tasmi_filtered=len(filtered_tasmi),
         alumni_data=filtered_alumni.to_dict(orient='records'),
         total_alumni_filtered=len(filtered_alumni),
+        pdf_id=PDF_TATA_TERTIB_ID,
         cabang_list=cabang_list,
         cabang_list_prestasi=cabang_list_prestasi,
         cabang_list_tasmi=cabang_list_tasmi,
