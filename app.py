@@ -104,12 +104,12 @@ HTML_TEMPLATE = """
 
             <div class="col-lg-4">
                 <div class="card card-stat bg-white p-3 h-100">
-                    <h6 class="fw-bold mb-2">Daftar Cabang & PIC</h6>
+                    <h6 class="fw-bold mb-2">Daftar cabang RQ</h6>
                     <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
                         <table class="table table-sm table-hover align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Cabang & Info Lokasi</th>
+                                    <th>Informasi RQ</th>
                                     <th class="text-center">Santri</th>
                                     <th class="text-center">Kapasitas</th>
                                 </tr>
@@ -148,6 +148,11 @@ HTML_TEMPLATE = """
                 <li class="nav-item" role="presentation">
                     <button class="nav-link {% if active_tab == 'santri' or not active_tab %}active{% endif %}" id="santri-tab" data-bs-toggle="tab" data-bs-target="#santri-content" type="button" role="tab">
                         👥 Data Santri ({{ santri_total }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'rata2' %}active{% endif %}" id="rata2-tab" data-bs-toggle="tab" data-bs-target="#rata2-content" type="button" role="tab">
+                        📊 Rata-Rata Hafalan ({{ rata2_data | length }})
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -240,7 +245,44 @@ HTML_TEMPLATE = """
                     </div>
                 </div>
 
-                <!-- Tab 2: Data Santri Berprestasi -->
+                <!-- Tab 2: Rata-Rata Hafalan per Cabang RQ -->
+                <div class="tab-pane fade {% if active_tab == 'rata2' %}show active{% endif %}" id="rata2-content" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="fw-bold mb-0 text-muted">RATA-RATA CAPAIAN HAFALAN PER RUMAH QUR'AN</h6>
+                            <small class="text-success fw-semibold">Pembaruan data otomatis mengikuti bulan terbaru yang terisi</small>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped table-hover align-middle">
+                            <thead class="table-dark text-center">
+                                <tr>
+                                    <th style="width: 8%;">NO</th>
+                                    <th style="width: 40%;" class="text-start">CABANG RUMAH QUR'AN</th>
+                                    <th style="width: 26%;">BULAN TERAKHIR TERISI</th>
+                                    <th style="width: 26%;">RATA-RATA HAFALAN</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in rata2_data %}
+                                <tr>
+                                    <td class="text-center">{{ loop.index }}</td>
+                                    <td class="fw-bold text-start">{{ r.get('Cabang', '-') }}</td>
+                                    <td class="text-center"><span class="badge bg-info text-dark fs-6">{{ r.get('Bulan_Terbaru', '-') }}</span></td>
+                                    <td class="text-center"><span class="badge bg-success fs-6">{{ r.get('Nilai_Rata2', '-') }} Juz</span></td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">Data rata-rata hafalan belum tersedia.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Data Santri Berprestasi -->
                 <div class="tab-pane fade {% if active_tab == 'prestasi' %}show active{% endif %}" id="prestasi-content" role="tabpanel">
                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
                         <h6 class="fw-bold mb-2 mb-md-0 text-muted">DATA SANTRI BERPRESTASI</h6>
@@ -304,7 +346,7 @@ HTML_TEMPLATE = """
                     </div>
                 </div>
 
-                <!-- Tab 3: Data Tasmi' Santri -->
+                <!-- Tab 4: Data Tasmi' Santri -->
                 <div class="tab-pane fade {% if active_tab == 'tasmi' %}show active{% endif %}" id="tasmi-content" role="tabpanel">
                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
                         <h6 class="fw-bold mb-2 mb-md-0 text-muted">DATA TASMI' SANTRI TA 2026-2027</h6>
@@ -354,7 +396,7 @@ HTML_TEMPLATE = """
                     </div>
                 </div>
 
-                <!-- Tab 4: Data Alumni -->
+                <!-- Tab 5: Data Alumni -->
                 <div class="tab-pane fade {% if active_tab == 'alumni' %}show active{% endif %}" id="alumni-content" role="tabpanel">
                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
                         <h6 class="fw-bold mb-2 mb-md-0 text-muted">DATA ALUMNI RUMAH QUR'AN</h6>
@@ -452,6 +494,74 @@ HTML_TEMPLATE = """
 </body>
 </html>
 """
+
+def extract_rata2_sheet():
+    """Membaca sheet 'rata2 hafalan' dan mengambil rata-rata bulan terbaru tiap cabang"""
+    rata2_list = []
+    url = get_sheet_url('rata2 hafalan', sheet_id=SHEET_ID_UTAMA)
+    try:
+        raw = pd.read_csv(url, header=None)
+        
+        # Temukan baris header bulan
+        header_idx = None
+        for idx, r in raw.head(6).iterrows():
+            line = " ".join(r.dropna().astype(str).tolist()).lower()
+            if "juli" in line and "agustus" in line:
+                header_idx = idx
+                break
+                
+        if header_idx is not None:
+            df = pd.read_csv(url, skiprows=header_idx)
+        else:
+            df = pd.read_csv(url)
+
+        df.columns = [str(c).strip() for c in df.columns]
+
+        bulan_order = ['juli', 'agustus', 'september', 'oktober', 'november', 'desember', 'januari', 'februari', 'maret', 'april', 'mei', 'juni']
+        month_cols = []
+        for b in bulan_order:
+            found = next((c for c in df.columns if c.lower() == b or b in c.lower()), None)
+            if found:
+                month_cols.append((b.capitalize(), found))
+
+        # Telusuri baris RATA-RATA tiap cabang
+        current_rq = "-"
+        for idx, row in df.iterrows():
+            first_val = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ""
+            if first_val and first_val.lower() not in ['rq', 'nan', '', 'no', 'nama']:
+                if 'rata' not in first_val.lower():
+                    current_rq = first_val
+
+            row_str = " ".join(row.dropna().astype(str).tolist()).lower()
+            if "rata-rata" in row_str or "rata2" in row_str or "rata" in row_str:
+                # Cari nilai bulan terbaru dari kanan ke kiri
+                val_terbaru = "-"
+                nama_bulan_terbaru = "-"
+                
+                for b_name, m_col in reversed(month_cols):
+                    v = row.get(m_col)
+                    if pd.notna(v):
+                        v_str = str(v).strip()
+                        # Abaikan nilai kosong, strip, atau error excel #DIV/0!
+                        if v_str and v_str.lower() not in ['nan', '-', ''] and not v_str.startswith('#'):
+                            try:
+                                num = float(v_str.replace(',', '.'))
+                                val_terbaru = f"{num:.2f}"
+                            except Exception:
+                                val_terbaru = v_str
+                            nama_bulan_terbaru = b_name
+                            break
+                
+                cabang_name = current_rq if current_rq != "-" else f"Cabang {len(rata2_list) + 1}"
+                rata2_list.append({
+                    'Cabang': cabang_name.replace('RQ ', '').strip(),
+                    'Bulan_Terbaru': nama_bulan_terbaru,
+                    'Nilai_Rata2': val_terbaru
+                })
+    except Exception as e:
+        print(f"Error memuat rata2 hafalan: {e}")
+        
+    return rata2_list
 
 def extract_profil_sheet():
     profil_url = get_sheet_url('Profil', sheet_id=SHEET_ID_UTAMA)
@@ -790,15 +900,16 @@ def load_online_data():
             santri_list.append(df_cabang)
             
     all_santri = pd.concat(santri_list, ignore_index=True) if santri_list else pd.DataFrame()
+    rata2_data = extract_rata2_sheet()
     prestasi_data = extract_prestasi_sheet()
     tasmi_data = extract_tasmi_sheet()
     alumni_data = extract_alumni_sheet()
     
-    return profil_df, all_santri, prestasi_data, tasmi_data, alumni_data
+    return profil_df, all_santri, rata2_data, prestasi_data, tasmi_data, alumni_data
 
 @app.route('/')
 def home():
-    profil_df, all_santri, prestasi_df, tasmi_df, alumni_df = load_online_data()
+    profil_df, all_santri, rata2_data, prestasi_df, tasmi_df, alumni_df = load_online_data()
     
     total_cabang = len(profil_df)
     total_santri = int(profil_df['Jumlah Santri'].sum()) if not profil_df.empty and 'Jumlah Santri' in profil_df.columns else 0
@@ -892,6 +1003,7 @@ def home():
         profil_data=profil_df.to_dict(orient='records'),
         santri_data=filtered_santri.to_dict(orient='records'),
         santri_total=len(filtered_santri),
+        rata2_data=rata2_data,
         prestasi_data=filtered_prestasi.to_dict(orient='records'),
         total_prestasi_filtered=len(filtered_prestasi),
         tasmi_data=filtered_tasmi.to_dict(orient='records'),
