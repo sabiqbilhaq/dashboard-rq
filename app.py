@@ -8,10 +8,11 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 app = Flask(__name__)
 
-# ID Spreadsheet & File
+# ID Spreadsheet & File/Folder Drive
 SHEET_ID_UTAMA = "1FKYLB_YYtXgB83ydpvhlzxEESmzkiMhBiz5KiZPRqag"
 SHEET_ID_ALUMNI = "1q_CLTnSBZi21F50iZFJEzFtABZqC-DWr"
 PDF_TATA_TERTIB_ID = "1_gxEFeoZ2hsT8uM1INnAzxT_v-CkOGTQ"
+FOLDER_LAPORAN_ID = "1QoS-2wzH9sOzpoCiVccnviKr91icyCbb"
 
 def get_sheet_url(sheet_name, sheet_id=SHEET_ID_UTAMA):
     encoded = urllib.parse.quote(sheet_name)
@@ -34,6 +35,8 @@ HTML_TEMPLATE = """
         .nav-tabs .nav-link.active { color: #198754; border: none; border-bottom: 3px solid #198754; background: transparent; }
         .pdf-container { position: relative; width: 100%; height: 780px; border-radius: 8px; overflow: hidden; border: 1px solid #dee2e6; }
         .pdf-container iframe { width: 100%; height: 100%; border: none; }
+        .folder-card { border-radius: 10px; border: 1px solid #e2e8f0; transition: transform 0.2s; }
+        .folder-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.08); }
     </style>
 </head>
 <body class="p-4">
@@ -176,6 +179,11 @@ HTML_TEMPLATE = """
                 <li class="nav-item" role="presentation">
                     <button class="nav-link {% if active_tab == 'tatatertib' %}active{% endif %}" id="tatatertib-tab" data-bs-toggle="tab" data-bs-target="#tatatertib-content" type="button" role="tab">
                         📋 Tata Tertib Santri
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'laporan' %}active{% endif %}" id="laporan-tab" data-bs-toggle="tab" data-bs-target="#laporan-content" type="button" role="tab">
+                        📁 Laporan Tahunan Program
                     </button>
                 </li>
             </ul>
@@ -481,6 +489,59 @@ HTML_TEMPLATE = """
 
                     <div class="pdf-container">
                         <iframe src="https://drive.google.com/file/d/{{ pdf_id }}/preview" allow="autoplay"></iframe>
+                    </div>
+                </div>
+
+                <!-- Tab 7: Laporan Tahunan Program -->
+                <div class="tab-pane fade {% if active_tab == 'laporan' %}show active{% endif %}" id="laporan-content" role="tabpanel">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                        <div>
+                            <h6 class="fw-bold mb-0 text-muted">ARSIP LAPORAN TAHUNAN PROGRAM</h6>
+                            <small class="text-muted">Laporan pertanggungjawaban program Rumah Qur'an per tahun</small>
+                        </div>
+                        <div class="mt-2 mt-md-0">
+                            <a href="https://drive.google.com/drive/folders/{{ folder_laporan_id }}?usp=sharing" target="_blank" class="btn btn-sm btn-success fw-semibold">
+                                📂 Buka Folder Lengkap di Google Drive
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Kartu Akses Cepat File -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light folder-card h-100 d-flex flex-column justify-content-between">
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="fs-3">📄</span>
+                                        <h6 class="fw-bold text-dark mb-0">Laporan Tahunan 2024</h6>
+                                    </div>
+                                    <p class="small text-muted mb-3">Arsip laporan kegiatan, realisasi program, dan evaluasi capaian tahun 2024.</p>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <a href="https://drive.google.com/drive/folders/{{ folder_laporan_id }}" target="_blank" class="btn btn-sm btn-outline-success">Lihat Dokumen</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light folder-card h-100 d-flex flex-column justify-content-between">
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="fs-3">📄</span>
+                                        <h6 class="fw-bold text-dark mb-0">Laporan Tahunan 2025</h6>
+                                    </div>
+                                    <p class="small text-muted mb-3">Arsip laporan kegiatan, realisasi program, dan evaluasi capaian tahun 2025.</p>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <a href="https://drive.google.com/drive/folders/{{ folder_laporan_id }}" target="_blank" class="btn btn-sm btn-outline-success">Lihat Dokumen</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Embedded Drive Folder Viewer -->
+                    <div class="pdf-container">
+                        <iframe src="https://drive.google.com/embeddedfolderview?id={{ folder_laporan_id }}#list" allow="autoplay"></iframe>
                     </div>
                 </div>
             </div>
@@ -963,8 +1024,8 @@ def home():
         filtered_prestasi = filtered_prestasi[filtered_prestasi['Rumah_Quran'] == selected_cabang_prestasi]
     if query_cari_prestasi and not filtered_prestasi.empty:
         m1 = filtered_prestasi['Nama'].astype(str).str.contains(query_cari_prestasi, case=False, na=False)
-        m2 = filtered_prestasi['Penghargaan'].astype(str).str.contains(query_cari_prestasi, case=False, na=False)
-        m3 = filtered_prestasi['Lomba'].astype(str).str.contains(query_cari_prestasi, case=False, na=False)
+        m2 = filtered_prestasi['Penghargaan'].astype(str).contains(query_cari_prestasi, case=False, na=False)
+        m3 = filtered_prestasi['Lomba'].astype(str).contains(query_cari_prestasi, case=False, na=False)
         filtered_prestasi = filtered_prestasi[m1 | m2 | m3]
     cabang_list_prestasi = sorted(prestasi_df['Rumah_Quran'].unique()) if not prestasi_df.empty else []
     
@@ -1035,6 +1096,7 @@ def home():
         alumni_data=filtered_alumni.to_dict(orient='records'),
         total_alumni_filtered=len(filtered_alumni),
         pdf_id=PDF_TATA_TERTIB_ID,
+        folder_laporan_id=FOLDER_LAPORAN_ID,
         cabang_list=cabang_list,
         cabang_list_prestasi=cabang_list_prestasi,
         cabang_list_tasmi=cabang_list_tasmi,
