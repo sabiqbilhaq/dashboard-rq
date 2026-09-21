@@ -213,16 +213,18 @@ HTML_TEMPLATE = """
                         <table class="table table-striped table-hover align-middle">
                             <thead class="table-dark text-center">
                                 <tr>
-                                    <th style="width: 5%;">No</th>
-                                    <th style="width: 20%;" class="text-start">Nama Santri</th>
-                                    <th style="width: 12%;">Total Hafalan</th>
-                                    <th style="width: 10%;">Tasmi'</th>
-                                    <th style="width: 10%;">Cabang</th>
-                                    <th style="width: 8%;">Grade</th>
-                                    <th style="width: 10%;">Status</th>
-                                    <th style="width: 9%;">Gender</th>
-                                    <th style="width: 8%;">Kelas</th>
-                                    <th style="width: 8%;">Tahun Masuk</th>
+                                    <th style="width: 4%;">No</th>
+                                    <th style="width: 15%;" class="text-start">Nama Santri</th>
+                                    <th style="width: 10%;">Total Hafalan</th>
+                                    <th style="width: 8%;">Tasmi'</th>
+                                    <th style="width: 8%;">Cabang</th>
+                                    <th style="width: 6%;">Grade</th>
+                                    <th style="width: 8%;">Status</th>
+                                    <th style="width: 8%;">Gender</th>
+                                    <th style="width: 7%;">Kelas</th>
+                                    <th style="width: 7%;">Tahun Masuk</th>
+                                    <th style="width: 12%;">TTL</th>
+                                    <th style="width: 15%;" class="text-start">Alamat</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -250,10 +252,12 @@ HTML_TEMPLATE = """
                                     <td class="text-center">{{ s.get('Gender_Clean', '-') }}</td>
                                     <td class="text-center fw-semibold">{{ s.get('Kelas_Clean', '-') }}</td>
                                     <td class="text-center">{{ s.get('Tahun_Clean', '-') }}</td>
+                                    <td class="text-center small">{{ s.get('TTL_Clean', '-') }}</td>
+                                    <td class="small text-start">{{ s.get('Alamat_Clean', '-') }}</td>
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="10" class="text-center py-4 text-muted">Tidak ada data santri yang cocok.</td>
+                                    <td colspan="12" class="text-center py-4 text-muted">Tidak ada data santri yang cocok.</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -506,7 +510,6 @@ HTML_TEMPLATE = """
                         </div>
                     </div>
 
-                    <!-- Kartu Akses Cepat File -->
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <div class="p-3 bg-light folder-card h-100 d-flex flex-column justify-content-between">
@@ -539,7 +542,6 @@ HTML_TEMPLATE = """
                         </div>
                     </div>
 
-                    <!-- Embedded Drive Folder Viewer -->
                     <div class="pdf-container">
                         <iframe src="https://drive.google.com/embeddedfolderview?id={{ folder_laporan_id }}#list" allow="autoplay"></iframe>
                     </div>
@@ -854,6 +856,7 @@ def extract_santri_sheet(sheet_name, hafalan_map, tasmi_map):
         grade_col = next((c for c in df.columns if 'kelas' in c.lower()), None)
     df_clean['Grade_Clean'] = df_clean[grade_col].fillna('-') if grade_col else '-'
     
+    # Ambil Kolom J (indeks ke-9) untuk Kelas
     kelas_col_j = None
     if len(df.columns) > 9:
         candidate_j = df.columns[9]
@@ -876,6 +879,18 @@ def extract_santri_sheet(sheet_name, hafalan_map, tasmi_map):
         df_clean['Tahun_Clean'] = pd.to_numeric(df_clean[thn_col], errors='coerce').fillna(0).astype(int).replace(0, '-')
     else:
         df_clean['Tahun_Clean'] = '-'
+
+    # Ambil Kolom E (indeks ke-4): Tempat, Tanggal Lahir
+    ttl_col = next((c for c in df.columns if any(k in c.lower() for k in ['tempat, tanggal lahir', 'tanggal lahir', 'ttl', 'tempat tanggal'])), None)
+    if not ttl_col and len(df.columns) > 4:
+        ttl_col = df.columns[4]
+    df_clean['TTL_Clean'] = df_clean[ttl_col].fillna('-').astype(str).str.strip() if ttl_col else '-'
+
+    # Ambil Kolom F (indeks ke-5): Alamat
+    alamat_col = next((c for c in df.columns if 'alamat' in c.lower()), None)
+    if not alamat_col and len(df.columns) > 5:
+        alamat_col = df.columns[5]
+    df_clean['Alamat_Clean'] = df_clean[alamat_col].fillna('-').astype(str).str.strip() if alamat_col else '-'
 
     clean_cabang_name = sheet_name.replace('RQ ', '')
     df_clean['Cabang'] = clean_cabang_name
@@ -1036,7 +1051,7 @@ def home():
     if selected_cabang_tasmi and not filtered_tasmi.empty:
         filtered_tasmi = filtered_tasmi[filtered_tasmi['RQ'] == selected_cabang_tasmi]
     if query_cari_tasmi and not filtered_tasmi.empty:
-        m1 = filtered_tasmi['Nama'].astype(str).str.contains(query_cari_tasmi, case=False, na=False)
+        m1 = filtered_tasmi['Nama'].astype(str).contains(query_cari_tasmi, case=False, na=False)
         m2 = filtered_tasmi['Jumlah_Juz'].astype(str).contains(query_cari_tasmi, case=False, na=False)
         filtered_tasmi = filtered_tasmi[m1 | m2]
     cabang_list_tasmi = sorted(tasmi_df['RQ'].unique()) if not tasmi_df.empty else []
