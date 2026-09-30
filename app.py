@@ -13,6 +13,7 @@ SHEET_ID_UTAMA = "1FKYLB_YYtXgB83ydpvhlzxEESmzkiMhBiz5KiZPRqag"
 SHEET_ID_ALUMNI = "1q_CLTnSBZi21F50iZFJEzFtABZqC-DWr"
 PDF_TATA_TERTIB_ID = "1_gxEFeoZ2hsT8uM1INnAzxT_v-CkOGTQ"
 FOLDER_LAPORAN_ID = "1QoS-2wzH9sOzpoCiVccnviKr91icyCbb"
+PDF_BUKU_PANDUAN_ID = "1yojg7Sr2tVrOa3icNrfN8c9lUFALGA2l"
 
 def get_sheet_url(sheet_name, sheet_id=SHEET_ID_UTAMA):
     encoded = urllib.parse.quote(sheet_name)
@@ -184,6 +185,11 @@ HTML_TEMPLATE = """
                 <li class="nav-item" role="presentation">
                     <button class="nav-link {% if active_tab == 'laporan' %}active{% endif %}" id="laporan-tab" data-bs-toggle="tab" data-bs-target="#laporan-content" type="button" role="tab">
                         📁 Laporan Tahunan Program
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'panduan' %}active{% endif %}" id="panduan-tab" data-bs-toggle="tab" data-bs-target="#panduan-content" type="button" role="tab">
+                        📘 Buku Panduan RQ
                     </button>
                 </li>
             </ul>
@@ -482,17 +488,17 @@ HTML_TEMPLATE = """
                             <small class="text-muted">Baca langsung dokumen peraturan dan tata tertib di bawah ini</small>
                         </div>
                         <div class="d-flex gap-2 mt-2 mt-md-0">
-                            <a href="https://drive.google.com/file/d/{{ pdf_id }}/view?usp=sharing" target="_blank" class="btn btn-sm btn-outline-success fw-semibold">
+                            <a href="https://drive.google.com/file/d/{{ pdf_tatatertib_id }}/view?usp=sharing" target="_blank" class="btn btn-sm btn-outline-success fw-semibold">
                                 ↗️ Buka di Tab Baru
                             </a>
-                            <a href="https://drive.google.com/uc?export=download&id={{ pdf_id }}" target="_blank" class="btn btn-sm btn-success fw-semibold">
+                            <a href="https://drive.google.com/uc?export=download&id={{ pdf_tatatertib_id }}" target="_blank" class="btn btn-sm btn-success fw-semibold">
                                 📥 Download PDF
                             </a>
                         </div>
                     </div>
 
                     <div class="pdf-container">
-                        <iframe src="https://drive.google.com/file/d/{{ pdf_id }}/preview" allow="autoplay"></iframe>
+                        <iframe src="https://drive.google.com/file/d/{{ pdf_tatatertib_id }}/preview" allow="autoplay"></iframe>
                     </div>
                 </div>
 
@@ -544,6 +550,57 @@ HTML_TEMPLATE = """
 
                     <div class="pdf-container">
                         <iframe src="https://drive.google.com/embeddedfolderview?id={{ folder_laporan_id }}#list" allow="autoplay"></iframe>
+                    </div>
+                </div>
+
+                <!-- Tab 8: Buku Panduan Rumah Qur'an (Google Drive) -->
+                <div class="tab-pane fade {% if active_tab == 'panduan' %}show active{% endif %}" id="panduan-content" role="tabpanel">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                        <div>
+                            <h6 class="fw-bold mb-0 text-success">📘 BUKU PANDUAN PENDIDIKAN AL-QUR'AN (METODE CINTA AL-QUR'AN)</h6>
+                            <small class="text-muted">Pedoman Standarisasi Pengelolaan, Kurikulum, & SOP Santri Bina Santri Indonesia</small>
+                        </div>
+                        <div class="d-flex gap-2 mt-2 mt-md-0">
+                            <a href="https://drive.google.com/file/d/{{ pdf_panduan_id }}/view?usp=sharing" target="_blank" class="btn btn-sm btn-outline-success fw-semibold">
+                                ↗️ Buka di Tab Baru
+                            </a>
+                            <a href="https://drive.google.com/uc?export=download&id={{ pdf_panduan_id }}" target="_blank" class="btn btn-sm btn-success fw-semibold">
+                                📥 Download Buku PDF
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Highlight Ringkasan Panduan -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="p-3 bg-white border rounded shadow-sm h-100">
+                                <div class="fw-bold text-dark mb-1">❤️ Metode Cinta</div>
+                                <small class="text-muted">Berfokus pada mencintai Al-Qur'an dan pendekatan multiple intelligence yang ramah serta membahagiakan santri.</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="p-3 bg-white border rounded shadow-sm h-100">
+                                <div class="fw-bold text-dark mb-1">🎯 4 Paket Pilihan</div>
+                                <small class="text-muted">Pembagian grade berjenjang: Paket 5 Juz (Grade D), 10 Juz (Grade C), 15 Juz (Grade B), dan 30 Juz (Grade A).</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="p-3 bg-white border rounded shadow-sm h-100">
+                                <div class="fw-bold text-dark mb-1">🔄 Ritme Ziyadah & Murojaah</div>
+                                <small class="text-muted">Penguatan hafalan harian berulang (metode ABC), tilawah jama'i, serta qiyamullail bil Qur'an setiap malam.</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="p-3 bg-white border rounded shadow-sm h-100">
+                                <div class="fw-bold text-dark mb-1">📜 Standar Evaluasi</div>
+                                <small class="text-muted">Ujian perolehan juz, tasmi' berjenjang, pengetatan Lahnul Jaly & Khofiy, hingga sertifikasi Syahadah & Ijazah.</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PDF Viewer dari Google Drive -->
+                    <div class="pdf-container">
+                        <iframe src="https://drive.google.com/file/d/{{ pdf_panduan_id }}/preview" allow="autoplay"></iframe>
                     </div>
                 </div>
             </div>
@@ -856,7 +913,6 @@ def extract_santri_sheet(sheet_name, hafalan_map, tasmi_map):
         grade_col = next((c for c in df.columns if 'kelas' in c.lower()), None)
     df_clean['Grade_Clean'] = df_clean[grade_col].fillna('-') if grade_col else '-'
     
-    # Ambil Kolom J (indeks ke-9) untuk Kelas
     kelas_col_j = None
     if len(df.columns) > 9:
         candidate_j = df.columns[9]
@@ -880,13 +936,11 @@ def extract_santri_sheet(sheet_name, hafalan_map, tasmi_map):
     else:
         df_clean['Tahun_Clean'] = '-'
 
-    # Ambil Kolom E (indeks ke-4): Tempat, Tanggal Lahir
     ttl_col = next((c for c in df.columns if any(k in c.lower() for k in ['tempat, tanggal lahir', 'tanggal lahir', 'ttl', 'tempat tanggal'])), None)
     if not ttl_col and len(df.columns) > 4:
         ttl_col = df.columns[4]
     df_clean['TTL_Clean'] = df_clean[ttl_col].fillna('-').astype(str).str.strip() if ttl_col else '-'
 
-    # Ambil Kolom F (indeks ke-5): Alamat
     alamat_col = next((c for c in df.columns if 'alamat' in c.lower()), None)
     if not alamat_col and len(df.columns) > 5:
         alamat_col = df.columns[5]
@@ -1110,8 +1164,9 @@ def home():
         total_tasmi_filtered=len(filtered_tasmi),
         alumni_data=filtered_alumni.to_dict(orient='records'),
         total_alumni_filtered=len(filtered_alumni),
-        pdf_id=PDF_TATA_TERTIB_ID,
+        pdf_tatatertib_id=PDF_TATA_TERTIB_ID,
         folder_laporan_id=FOLDER_LAPORAN_ID,
+        pdf_panduan_id=PDF_BUKU_PANDUAN_ID,
         cabang_list=cabang_list,
         cabang_list_prestasi=cabang_list_prestasi,
         cabang_list_tasmi=cabang_list_tasmi,
